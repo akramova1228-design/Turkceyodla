@@ -65,10 +65,10 @@ const plain = s => trl(s).replace(/ı/g,'i').replace(/ş/g,'s').replace(/ç/g,'c
 
 function loginView() {
   $('#app').innerHTML = `<div class="login"><div class="moon">🌙</div><h1>Türkçe Yodla</h1>
-  <p class="hint">Turkcha so'zlarni o'rganamiz</p>
-  <input id="nm" placeholder="Ismingiz" autocomplete="name">
+  <p class="hint">Faqat ustoz tasdiqlagan o'quvchilar uchun. Birinchi kirishda so'rov ustozga yuboriladi.</p>
+  <input id="nm" placeholder="Ism familiyangiz" autocomplete="name">
   <input id="ph" placeholder="Telefon raqam" inputmode="tel" autocomplete="tel">
-  <button class="b" onclick="doLogin()">Kirish</button><p id="er" class="hint"></p></div>`;
+  <button class="b" onclick="doLogin()">Kirish / So'rov yuborish</button><p id="er" class="hint"></p></div>`;
   const last = JSON.parse(localStorage.getItem('last') || 'null');
   if (last) { $('#nm').value = last.n; $('#ph').value = last.p; }
 }
@@ -81,13 +81,22 @@ async function doLogin() {
   boot();
 }
 function logout() { localStorage.removeItem('me'); me = null; loginView(); }
+function waitView() {
+  const rej = me.status === 'rejected';
+  $('#app').innerHTML = `<div class="login"><div class="moon">${rej ? '⛔' : '⏳'}</div><h1>${rej ? 'So\'rov rad etildi' : 'Tasdiq kutilmoqda'}</h1><p>${rej ? 'Ustoz kirishga ruxsat bermadi. Ustoz bilan bog\'laning.' : 'So\'rovingiz ustozga yuborildi. Ustoz tasdiqlagach saytga kira olasiz.'}</p><button class="b t" onclick="boot()">Qayta tekshirish</button><button class="b g" onclick="logout()">Chiqish</button></div>`;
+}
 
 async function boot() {
-  const [w, p] = await Promise.all([sb.from('words').select('*').order('id'), sb.from('progress').select('*').eq('user_id', me.id)]);
+  const f = await sb.rpc('login', { p_phone: me.phone, p_name: me.name });
+  if (f.error || !f.data) return $('#app').innerHTML = '<div class="login"><p>Ulanishda xatolik.</p><button class="b" onclick="boot()">Qayta urinish</button><button class="b g" onclick="logout()">Chiqish</button></div>';
+  me = f.data; localStorage.setItem('me', JSON.stringify(me));
+  if (me.status !== 'approved') return waitView();
+  const [w, p] = await Promise.all([sb.rpc('get_words', { p_user: me.id }), sb.rpc('get_progress', { p_user: me.id })]);
   words = w.data || []; prog = {}; (p.data || []).forEach(r => prog[r.word_id] = r);
   const s = await sb.rpc('touch', { p_user: me.id, p_day: day() });
   if (typeof s.data === 'number') me.streak = s.data;
   buildQ(); render();
+  if (me.role === 'teacher' && !window._pi) { pollPending(); window._pi = setInterval(pollPending, 30000); }
 }
 function buildQ() {
   const t = day();
@@ -99,7 +108,8 @@ function render() {
   const T = [['cards','🃏','Kartalar'],['games','🎮','O\'yin'],['rank','🏆','Reyting'],['badge','🏅','Nishon']];
   if (me.role === 'teacher') T.push(['teach','⚙️','Ustoz']);
   $('#app').innerHTML = `<header><div class="logo">🌙 Türkçe Yodla</div><div class="chip">🔥 ${me.streak} kun</div></header>
-  <main id="main"></main><nav>${T.map(t => `<button class="${tab === t[0] ? 'on' : ''}" onclick="tab='${t[0]}';render()"><span>${t[1]}</span>${t[2]}</button>`).join('')}</nav>`;
+  <main id="main"></main><nav>${T.map(t => `<button ${t[0] === 'teach' ? 'id="tn"' : ''} class="${tab === t[0] ? 'on' : ''}" onclick="tab='${t[0]}';render()"><span>${t[1]}</span>${t[2]}</button>`).join('')}</nav>`;
+  setPn();
   ({ cards, games, rank, badge, teach })[tab]();
 }
 
@@ -120,7 +130,7 @@ async function grade(ok) {
   const w = C.q[C.i], old = prog[w.id], box = ok ? Math.min((old ? old.box : 0) + 1, 5) : 0;
   const r = { user_id: me.id, word_id: w.id, box, due: day(GAP[box]) };
   prog[w.id] = r; C.i++; C.flip = false; cards();
-  sb.from('progress').upsert(r);
+  sb.rpc('save_progress', { p_user: me.id, p_word: w.id, p_box: box, p_due: r.due });
 }
 
 /* ---- O'yinlar ---- */
@@ -173,8 +183,8 @@ function typing(s) {
 /* ---- Reyting ---- */
 async function rank() {
   $('#main').innerHTML = '<div class="hint">Yuklanmoqda…</div>';
-  const { data } = await sb.from('leaderboard').select('*').neq('role', 'teacher').order('learned', { ascending: false }).order('streak', { ascending: false });
-  $('#main').innerHTML = `<div class="card">${(data || []).map((u, i) => `<div class="rk ${u.id === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.name)}</span><span style="flex:0">🔥${u.streak}</span><span style="flex:0">📚${u.learned}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 yodlangan so'zlar · 🔥 ketma-ket kunlar</div>`;
+  const r = await sb.rpc('get_board', { p_user: me.id }); const data = r.data || [];
+  $('#main').innerHTML = `<div class="card">${(data || []).map((u, i) => `<div class="rk ${u.uid === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.uname)}</span><span style="flex:0">🔥${u.ustreak}</span><span style="flex:0">📚${u.ulearned}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 yodlangan so'zlar · 🔥 ketma-ket kunlar</div>`;
 }
 
 /* ---- Nishonlar + 30 kunlik strik ---- */
@@ -187,10 +197,23 @@ function badge() {
 }
 
 /* ---- Ustoz paneli ---- */
-function teach() {
-  $('#main').innerHTML = `<div class="card"><b>So'z qo'shish</b><p class="hint">Har qatorga bitta so'z: <i>turkcha - o'zbekcha - talaffuz</i> (talaffuz shart emas)<br>Masalan: <i>merhaba - salom - merxaba</i></p>
+let pn = 0;
+function setPn() { const b = $('#tn'); if (b) b.innerHTML = `<span>⚙️${pn ? ' <b style="background:#fff;color:var(--red);border-radius:9px;padding:0 6px;font-size:12px">' + pn + '</b>' : ''}</span>Ustoz`; }
+async function pollPending() { const r = await sb.rpc('list_users', { p_user: me.id }); pn = (r.data || []).filter(u => u.ustatus === 'pending').length; setPn(); }
+async function setSt(id, st) { await sb.rpc('set_status', { p_user: me.id, p_target: id, p_status: st }); teach(); }
+async function teach() {
+  const r = await sb.rpc('list_users', { p_user: me.id }), us = r.data || [];
+  const P = us.filter(u => u.ustatus === 'pending'), A = us.filter(u => u.ustatus === 'approved' && u.urole !== 'teacher'), X = us.filter(u => u.ustatus === 'rejected');
+  const btn = (u, st, ic) => `<button style="flex:0;border:0;background:none;font-size:20px" onclick="setSt('${u.uid}','${st}')">${ic}</button>`;
+  const row = (u, b) => `<div class="rk"><span>${esc(u.uname)}<div class="hint">${esc(u.uphone)}</div></span>${b}</div>`;
+  pn = P.length;
+  $('#main').innerHTML = `<div class="card ${P.length ? 'me' : ''}"><b>🔔 Kirish so'rovlari (${P.length})</b>${P.map(u => row(u, btn(u, 'approved', '✅') + btn(u, 'rejected', '❌'))).join('') || '<div class="hint">Yangi so\'rov yo\'q</div>'}</div>
+  <div class="card"><b>👥 O'quvchilar (${A.length})</b>${A.map(u => row(u, btn(u, 'rejected', '🚫'))).join('') || '<div class="hint">Hali yo\'q</div>'}</div>
+  ${X.length ? `<div class="card"><b>⛔ Rad etilganlar (${X.length})</b>${X.map(u => row(u, btn(u, 'approved', '✅'))).join('')}</div>` : ''}
+  <div class="card"><b>So'z qo'shish</b><p class="hint">Har qatorga bitta so'z: <i>turkcha - o'zbekcha - talaffuz</i> (talaffuz shart emas)<br>Masalan: <i>merhaba - salom - merxaba</i></p>
   <textarea id="bulk" placeholder="teşekkür - rahmat - teshekkur"></textarea><button class="b" onclick="addW()">Qo'shish</button><div id="msg" class="hint"></div></div>
   <div class="card"><b>Barcha so'zlar (${words.length})</b>${words.slice().reverse().map(w => `<div class="rk"><span>${esc(w.tr)} — ${esc(w.uz)} ${w.pron ? '<i class="hint">[' + esc(w.pron) + ']</i>' : ''}</span><button style="flex:0;border:0;background:none;font-size:18px" onclick="delW(${w.id})">🗑</button></div>`).join('')}</div>`;
+  setPn();
 }
 async function addW() {
   const rows = $('#bulk').value.split('\n').map(l => l.split(/\s[-–—]\s|\t/).map(x => x.trim())).filter(p => p[0] && p[1]).map(p => ({ tr: p[0], uz: p[1], pron: p[2] || '' }));
