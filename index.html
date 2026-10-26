@@ -210,18 +210,31 @@ async function teach() {
   $('#main').innerHTML = `<div class="card ${P.length ? 'me' : ''}"><b>🔔 Kirish so'rovlari (${P.length})</b>${P.map(u => row(u, btn(u, 'approved', '✅') + btn(u, 'rejected', '❌'))).join('') || '<div class="hint">Yangi so\'rov yo\'q</div>'}</div>
   <div class="card"><b>👥 O'quvchilar (${A.length})</b>${A.map(u => row(u, btn(u, 'rejected', '🚫'))).join('') || '<div class="hint">Hali yo\'q</div>'}</div>
   ${X.length ? `<div class="card"><b>⛔ Rad etilganlar (${X.length})</b>${X.map(u => row(u, btn(u, 'approved', '✅'))).join('')}</div>` : ''}
-  <div class="card"><b>So'z qo'shish</b><p class="hint">Har qatorga bitta so'z: <i>turkcha - o'zbekcha - talaffuz</i> (talaffuz shart emas)<br>Masalan: <i>merhaba - salom - merxaba</i></p>
+  <div class="card"><b>So'z qo'shish</b>
+  <input id="wtr" placeholder="Turkcha (masalan: merhaba)" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#wuz').focus()}">
+  <input id="wuz" placeholder="O'zbekcha (masalan: salom)" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#wpr').focus()}">
+  <input id="wpr" placeholder="Talaffuz (shart emas)" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter'){event.preventDefault();addOne()}">
+  <button class="b" onclick="addOne()">➕ Qo'shish</button><div id="msg1" class="hint"></div>
+  <hr><p class="hint">Ko'p so'zni birdan: har qatorga <i>turkcha - o'zbekcha - talaffuz</i></p>
   <textarea id="bulk" placeholder="teşekkür - rahmat - teshekkur"></textarea><button class="b" onclick="addW()">Qo'shish</button><div id="msg" class="hint"></div></div>
   <div class="card"><b>Barcha so'zlar (${words.length})</b>${words.slice().reverse().map(w => `<div class="rk"><span>${esc(w.tr)} — ${esc(w.uz)} ${w.pron ? '<i class="hint">[' + esc(w.pron) + ']</i>' : ''}</span><button style="flex:0;border:0;background:none;font-size:18px" onclick="delW(${w.id})">🗑</button></div>`).join('')}</div>`;
   setPn();
 }
-async function addW() {
-  const rows = $('#bulk').value.split('\n').map(l => l.split(/\s[-–—]\s|\t/).map(x => x.trim())).filter(p => p[0] && p[1]).map(p => ({ tr: p[0], uz: p[1], pron: p[2] || '' }));
-  if (!rows.length) return $('#msg').textContent = 'Format: turkcha - o\'zbekcha';
+async function addRows(rows, msgId) {
   const { error } = await sb.rpc('add_words', { p_user: me.id, p_rows: rows });
-  if (error) return $('#msg').textContent = 'Xatolik: ' + error.message;
-  const w = await sb.from('words').select('*').order('id'); words = w.data || []; buildQ(); teach();
-  $('#msg').textContent = rows.length + ' ta so\'z qo\'shildi ✅';
+  if (error) { $(msgId).textContent = 'Xatolik: ' + error.message; alert('Xatolik: ' + error.message); return false; }
+  const w = await sb.rpc('get_words', { p_user: me.id }); words = w.data || []; buildQ();
+  await teach(); $(msgId).textContent = rows.length + ' ta so\'z qo\'shildi ✅'; return true;
+}
+async function addOne() {
+  const tr = $('#wtr').value.trim(), uz = $('#wuz').value.trim(), pron = $('#wpr').value.trim();
+  if (!tr || !uz) return $('#msg1').textContent = 'Turkcha va o\'zbekchasini yozing';
+  if (await addRows([{ tr, uz, pron }], '#msg1')) $('#wtr').focus();
+}
+async function addW() {
+  const rows = $('#bulk').value.split('\n').map(l => l.split(/\s*[-–—=:\t]\s*/).map(x => x.trim())).filter(p => p[0] && p[1]).map(p => ({ tr: p[0], uz: p[1], pron: p[2] || '' }));
+  if (!rows.length) return $('#msg').textContent = 'Format: turkcha - o\'zbekcha';
+  await addRows(rows, '#msg');
 }
 async function delW(id) {
   if (!confirm('O\'chirilsinmi?')) return;
