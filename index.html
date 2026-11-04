@@ -93,8 +93,6 @@ async function boot() {
   if (me.status !== 'approved') return waitView();
   const [w, p] = await Promise.all([sb.rpc('get_words', { p_user: me.id }), sb.rpc('get_progress', { p_user: me.id })]);
   words = w.data || []; prog = {}; (p.data || []).forEach(r => prog[r.word_id] = r);
-  const s = await sb.rpc('touch', { p_user: me.id, p_day: day() });
-  if (typeof s.data === 'number') me.streak = s.data;
   buildQ(); render();
   if (me.role === 'teacher' && !window._pi) { pollPending(); window._pi = setInterval(pollPending, 30000); }
 }
@@ -107,7 +105,7 @@ function buildQ() {
 function render() {
   const T = [['cards','🃏','Kartalar'],['games','🎮','O\'yin'],['rank','🏆','Reyting'],['badge','🏅','Nishon']];
   if (me.role === 'teacher') T.push(['teach','⚙️','Ustoz']);
-  $('#app').innerHTML = `<header><div class="logo">🌙 Türkçe Yodla</div><div class="chip">🔥 ${me.streak} kun</div></header>
+  $('#app').innerHTML = `<header><div class="logo">🌙 Türkçe Yodla</div></header>
   <main id="main"></main><nav>${T.map(t => `<button ${t[0] === 'teach' ? 'id="tn"' : ''} class="${tab === t[0] ? 'on' : ''}" onclick="tab='${t[0]}';render()"><span>${t[1]}</span>${t[2]}</button>`).join('')}</nav>`;
   setPn();
   ({ cards, games, rank, badge, teach })[tab]();
@@ -134,13 +132,25 @@ async function grade(ok) {
 }
 
 /* ---- O'yinlar ---- */
+// Hamma so'z navbat bilan keladi: bir aylanish tugamaguncha so'z takrorlanmaydi
+let deck = [], deckN = -1;
+function draw(n) {
+  if (deckN !== words.length) { deck = []; deckN = words.length; }
+  const out = [];
+  while (out.length < n && out.length < words.length) {
+    if (!deck.length) deck = shuf(words);
+    const w = deck.pop();
+    if (!out.some(x => x.id === w.id)) out.push(w);
+  }
+  return out;
+}
 function games() {
   $('#main').innerHTML = words.length < 4 ? '<div class="card">O\'yin uchun kamida 4 ta so\'z kerak.</div>' :
   `<button class="b" onclick="quiz()">📝 Test (4 ta variant)</button><button class="b t" onclick="match()">🔗 Juftlash</button><button class="b g" onclick="typing()">⌨️ Yozish</button>`;
 }
 function back() { return '<button class="b g" onclick="games()">← O\'yinlar</button>'; }
 function quiz(s) {
-  s = s || { q: shuf(words).slice(0, 10), i: 0, sc: 0 };
+  s = s || { q: draw(10), i: 0, sc: 0 };
   const m = $('#main');
   if (s.i >= s.q.length) return m.innerHTML = `<div class="card" style="text-align:center"><div class="moon">🏁</div><b>Natija: ${s.sc} / ${s.q.length}</b></div><button class="b" onclick="quiz()">Qayta</button>${back()}`;
   const w = s.q[s.i], rev = Math.random() < .5;
@@ -155,7 +165,7 @@ function quiz(s) {
   });
 }
 function match() {
-  const ws = shuf(words).slice(0, 6); let a = null, done = 0, err = 0;
+  const ws = draw(6); let a = null, done = 0, err = 0;
   const L = shuf(ws), R = shuf(ws), m = $('#main');
   m.innerHTML = `<div class="hint">Mos juftliklarni tanlang</div><div class="m2"><div id="L">${L.map(w => `<button class="b w" data-id="${w.id}">${esc(w.uz)}</button>`).join('')}</div><div id="R">${R.map(w => `<button class="b w" data-id="${w.id}">${esc(w.tr)}</button>`).join('')}</div></div><div id="res"></div>${back()}`;
   document.querySelectorAll('#L button').forEach(b => b.onclick = () => { if (b.disabled) return; document.querySelectorAll('#L button').forEach(x => x.style.outline = ''); a = b; b.style.outline = '3px solid var(--teal)'; });
@@ -167,7 +177,7 @@ function match() {
   });
 }
 function typing(s) {
-  s = s || { q: shuf(words).slice(0, 10), i: 0, sc: 0 };
+  s = s || { q: draw(10), i: 0, sc: 0 };
   const m = $('#main');
   if (s.i >= s.q.length) return m.innerHTML = `<div class="card" style="text-align:center"><div class="moon">🏁</div><b>Natija: ${s.sc} / ${s.q.length}</b></div><button class="b" onclick="typing()">Qayta</button>${back()}`;
   const w = s.q[s.i];
@@ -184,14 +194,13 @@ function typing(s) {
 async function rank() {
   $('#main').innerHTML = '<div class="hint">Yuklanmoqda…</div>';
   const r = await sb.rpc('get_board', { p_user: me.id }); const data = r.data || [];
-  $('#main').innerHTML = `<div class="card">${(data || []).map((u, i) => `<div class="rk ${u.uid === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.uname)}</span><span style="flex:0">🔥${u.ustreak}</span><span style="flex:0">📚${u.ulearned}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 yodlangan so'zlar · 🔥 ketma-ket kunlar</div>`;
+  $('#main').innerHTML = `<div class="card">${(data || []).map((u, i) => `<div class="rk ${u.uid === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.uname)}</span><span style="flex:0">📚${u.ulearned}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 yodlangan so'zlar</div>`;
 }
 
 /* ---- Nishonlar + 30 kunlik strik ---- */
 function badge() {
   const n = learned(), nxt = (Math.floor(n / 500) + 1) * 500;
   $('#main').innerHTML = `<div class="card"><b>📚 ${n} so'z yodlandi</b><div class="bar"><i style="width:${Math.min(100, n % 500 / 5)}%"></i></div><div class="hint">Keyingi nishongacha: ${Math.max(0, nxt - n)} ta so'z</div></div>
-  <div class="card"><b>🔥 Strik: ${me.streak} / 30 kun</b><div class="bar"><i style="width:${Math.min(100, me.streak / 30 * 100)}%"></i></div><div class="hint">Bir kun qoldirsangiz, strik 1 dan boshlanadi${me.streak >= 30 ? ' · 🎖 30 kunlik strik bajarildi!' : ''}</div></div>
   ${BADGES.map((b, i) => `<div class="card badge ${n >= (i + 1) * 500 ? '' : 'lock'}"><div class="e">${b[0]}</div><div><b>${b[1]}</b><div class="hint">${(i + 1) * 500} ta so'z</div></div></div>`).join('')}
   <button class="b g" onclick="logout()">Chiqish</button>`;
 }
