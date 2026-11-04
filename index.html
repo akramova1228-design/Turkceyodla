@@ -34,6 +34,7 @@ textarea{min-height:130px}
 .badge{display:flex;gap:12px;align-items:center}.badge .e{font-size:34px}.lock{filter:grayscale(1);opacity:.45}
 .me{background:#c9962b33}
 .rk{display:flex;gap:10px;padding:10px 6px;border-bottom:1px solid #0001;align-items:center}.rk b{width:28px}.rk span{flex:1}
+.m3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.m3 div{background:var(--card);border:2px solid var(--gold);border-radius:14px;padding:10px;text-align:center;font-size:13px}.m3 b{display:block;font-size:24px}
 .m2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .login{text-align:center;padding:40px 20px}.login h1{color:var(--red);margin:0}
 .moon{font-size:56px}
@@ -119,8 +120,17 @@ function render() {
 }
 
 /* ---- Kartalar + spaced repetition ---- */
+const dueCount = () => { const t = day(); return words.filter(w => prog[w.id] && prog[w.id].due <= t).length; };
+function startReview() { const t = day(); C.q = shuf(words.filter(w => prog[w.id] && prog[w.id].due <= t)); C.i = 0; C.flip = false; cards(); }
 function cards() {
-  const m = $('#main');
+  const d = dueCount();
+  $('#main').innerHTML = `<div class="m3"><div><b>${words.length}</b>jami so‘z</div><div><b>${learned()}</b>yodlangan</div><div><b>${d}</b>takrorlash</div></div>
+  <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>🔁 Bugungi takrorlash</b><div class="hint">${d ? d + ' ta so‘z kutmoqda' : 'Hammasi takrorlangan ✅'}</div></div><button class="b" style="width:auto" onclick="startReview()" ${d ? '' : 'disabled'}>Boshlash</button></div>
+  <div id="cc"></div>`;
+  cardsInner();
+}
+function cardsInner() {
+  const m = $('#cc');
   if (!words.length) return m.innerHTML = '<div class="card">Hali so\'z yo\'q. Ustoz so\'z qo\'shishi kerak.</div>';
   if (C.i >= C.q.length) return m.innerHTML = `<div class="card" style="text-align:center"><div class="moon">🎉</div><b>Bugungi takrorlar tugadi!</b><p class="hint">Yodlangan: ${learned()} ta so'z</p><button class="b t" onclick="buildQ();render()">Yana mashq qilish</button><button class="b g" onclick="logout()">Chiqish</button></div>`;
   const w = C.q[C.i], front = C.rev ? w.uz : w.tr, back = C.rev ? w.tr : w.uz;
@@ -201,7 +211,7 @@ function typing(s) {
 async function rank() {
   $('#main').innerHTML = '<div class="hint">Yuklanmoqda…</div>';
   const r = await sb.rpc('get_board', { p_user: me.id }); const data = r.data || [];
-  $('#main').innerHTML = `<div class="card">${(data || []).map((u, i) => `<div class="rk ${u.uid === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.uname)}</span><span style="flex:0">📚${u.ulearned}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 ball (1 ta yodlangan so'z = 1 ball)</div>`;
+  $('#main').innerHTML = `<div class="m3" style="grid-template-columns:1fr 1fr"><div><b>${words.length}</b>jami kiritilgan so‘z</div><div><b>${learned()}</b>siz yodlagan</div></div><div class="card">${(data || []).map((u, i) => `<div class="rk ${u.uid === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.uname)}</span><span style="flex:0;white-space:nowrap">📚 ${u.ulearned} / ${words.length}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 yodlagan so'zlar / jami so'zlar (1 ta so'z = 1 ball)</div>`;
 }
 
 /* ---- Nishonlar + 30 kunlik strik ---- */
