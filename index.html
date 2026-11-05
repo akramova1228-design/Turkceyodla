@@ -145,7 +145,7 @@ async function grade(ok) {
   const w = C.q[C.i], old = prog[w.id], box = ok ? Math.min((old ? old.box : 0) + 1, 5) : 0;
   const r = { user_id: me.id, word_id: w.id, box, due: day(GAP[box]) };
   prog[w.id] = r; C.i++; C.flip = false; cards();
-  sb.rpc('save_progress', { p_user: me.id, p_word: w.id, p_box: box, p_due: r.due });
+  sb.rpc('save_progress', { p_user: me.id, p_word: w.id, p_box: box, p_due: r.due }).then(x => { if (x.error) alert('Saqlanmadi: ' + x.error.message); });
 }
 
 /* ---- O'yinlar ---- */
