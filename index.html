@@ -2,6 +2,7 @@
 <html lang="uz">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Türkçe Yodla</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
@@ -93,6 +94,7 @@ async function boot() {
   me = f.data; localStorage.setItem('me', JSON.stringify(me));
   if (me.status !== 'approved') return waitView();
   const [w, p] = await Promise.all([sb.rpc('get_words', { p_user: me.id }), sb.rpc('get_progress', { p_user: me.id })]);
+  if (p.error) alert('Natijalar yuklanmadi: ' + p.error.message);
   words = w.data || []; prog = {}; (p.data || []).forEach(r => prog[r.word_id] = r);
   buildQ(); render();
   if (me.role === 'teacher' && !window._pi) { pollPending(); window._pi = setInterval(pollPending, 30000); }
@@ -113,7 +115,7 @@ function buildQ() {
 function render() {
   const T = [['cards','🃏','Kartalar'],['games','🎮','O\'yin'],['rank','🏆','Reyting'],['badge','🏅','Nishon']];
   if (me.role === 'teacher') T.push(['teach','⚙️','Ustoz']);
-  $('#app').innerHTML = `<header><div class="logo">🌙 Türkçe Yodla</div></header>
+  $('#app').innerHTML = `<header><div class="logo">🌙 Türkçe Yodla</div><div class="chip" id="sv"></div></header>
   <main id="main"></main><nav>${T.map(t => `<button ${t[0] === 'teach' ? 'id="tn"' : ''} class="${tab === t[0] ? 'on' : ''}" onclick="tab='${t[0]}';render()"><span>${t[1]}</span>${t[2]}</button>`).join('')}</nav>`;
   setPn();
   ({ cards, games, rank, badge, teach })[tab]();
@@ -145,7 +147,11 @@ async function grade(ok) {
   const w = C.q[C.i], old = prog[w.id], box = ok ? Math.min((old ? old.box : 0) + 1, 5) : 0;
   const r = { user_id: me.id, word_id: w.id, box, due: day(GAP[box]) };
   prog[w.id] = r; C.i++; C.flip = false; cards();
-  sb.rpc('save_progress', { p_user: me.id, p_word: w.id, p_box: box, p_due: r.due }).then(x => { if (x.error) alert('Saqlanmadi: ' + x.error.message); });
+  const sv = $('#sv'); if (sv) sv.textContent = '⏳';
+  sb.rpc('save_progress', { p_user: me.id, p_word: w.id, p_box: box, p_due: r.due }).then(x => {
+    const e = $('#sv'); if (e) e.textContent = x.error ? '❌' : '☁️✅';
+    if (x.error) alert('Saqlanmadi: ' + x.error.message);
+  }, err => { const e = $('#sv'); if (e) e.textContent = '❌'; alert('Saqlanmadi (internet?): ' + err); });
 }
 
 /* ---- O'yinlar ---- */
