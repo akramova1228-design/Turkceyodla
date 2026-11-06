@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Türkçe Yodla</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--red:#b3122b;--gold:#c9962b;--teal:#0f6b73;--cream:#fbf4e4;--ink:#2a1a14;--card:#fffaf0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.4 Georgia,'Times New Roman',serif;
+background-image:repeating-linear-gradient(45deg,transparent 0 22px,rgba(201,150,43,.07) 22px 23px),repeating-linear-gradient(-45deg,transparent 0 22px,rgba(15,107,115,.06) 22px 23px);min-height:100vh}
+#app{max-width:520px;margin:0 auto;padding-bottom:84px}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--red);color:#fff;border-bottom:4px solid var(--gold)}
+.logo{font-size:20px;font-weight:bold}
+.chip{background:#fff3;border-radius:20px;padding:4px 12px}
+main{padding:16px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;background:var(--teal);border-top:3px solid var(--gold)}
+nav button{flex:1;max-width:104px;background:none;border:0;color:#fff;padding:10px 2px;font:12px Georgia,serif;opacity:.7}
+nav button.on{opacity:1;background:#0003}
+nav span{display:block;font-size:20px}
+.card,.box{background:var(--card);border:2px solid var(--gold);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 3px 0 #c9962b66}
+.flip{min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:30px;cursor:pointer}
+.flip small{font-size:15px;color:var(--teal);margin-top:6px}
+.hint{font-size:13px;opacity:.6}
+button.b,input,textarea,select{font:inherit}
+button.b{background:var(--red);color:#fff;border:0;border-radius:12px;padding:12px 16px;margin:4px 0;width:100%}
+button.b.t{background:var(--teal)}button.b.g{background:#8a6a1e}button.b.w{background:#fff;color:var(--ink);border:2px solid var(--gold);text-align:left}
+button.b.ok{background:#2e8b57;color:#fff;border-color:#2e8b57}button.b.no{background:#c0392b;color:#fff;border-color:#c0392b}
+.row{display:flex;gap:8px}.row>*{flex:1}
+input,textarea{width:100%;padding:12px;border:2px solid var(--gold);border-radius:12px;background:#fff;margin:6px 0}
+textarea{min-height:130px}
+.bar{height:10px;background:#0001;border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--gold)}
+.badge{display:flex;gap:12px;align-items:center}.badge .e{font-size:34px}.lock{filter:grayscale(1);opacity:.45}
+.me{background:#c9962b33}
+.rk{display:flex;gap:10px;padding:10px 6px;border-bottom:1px solid #0001;align-items:center}.rk b{width:28px}.rk span{flex:1}
+.m3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.m3 div{background:var(--card);border:2px solid var(--gold);border-radius:14px;padding:10px;text-align:center;font-size:13px}.m3 b{display:block;font-size:24px}
+.m2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.login{text-align:center;padding:40px 20px}.login h1{color:var(--red);margin:0}
+.moon{font-size:56px}
+@media(prefers-color-scheme:dark){:root{--cream:#1e1412;--ink:#f6ead6;--card:#2b1d19}input,textarea,button.b.w{background:#3a2923;color:var(--ink)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// === SOZLAMA: Supabase > Project Settings > API dan oling ===
+const SUPABASE_URL = 'https://tsrkfavulekaavrtfsll.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_SS3ecVeC_5M4TWgBAOEPSg_OyPab4j-';
+// ============================================================
+const CONFIGURED = SUPABASE_URL.startsWith('https://') && SUPABASE_KEY.length>20;
+const sb = CONFIGURED ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuf = a => [...a].sort(() => Math.random() - .5);
+const day = (add = 0) => { const d = new Date(); d.setDate(d.getDate() + add); return d.toLocaleDateString('sv'); };
+const GAP = [0, 1, 2, 4, 8, 16];
+const BADGES = [['🗼','Galata Sayyohi'],['⛵','Bosfor Kapitani'],['🎈','Kapadokya Uchuvchisi'],['🧿','Katta Bozor Savdogari'],['🏰','Topkapi Posboni'],['🌀','Mevlono Darvishi'],['⚔️','Yeniçeri Jangchisi'],['👑','Buyuk Sulton']];
+let me = JSON.parse(localStorage.getItem('me') || 'null'), words = [], prog = {}, tab = 'cards';
+let C = { q: [], i: 0, flip: false, rev: false };
+
+const learned = () => Object.values(prog).filter(p => p.box >= 1).length;
+function speak(t) { try { const u = new SpeechSynthesisUtterance(t); u.lang = 'tr-TR'; u.rate = .85; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {} }
+const trl = s => s.toLocaleLowerCase('tr').trim();
+const plain = s => trl(s).replace(/ı/g,'i').replace(/ş/g,'s').replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ö/g,'o').replace(/ü/g,'u');
+
+function loginView() {
+  $('#app').innerHTML = `<div class="login"><div class="moon">🌙</div><h1>Türkçe Yodla</h1>
+  <p class="hint">Faqat ustoz tasdiqlagan o'quvchilar uchun. Birinchi kirishda so'rov ustozga yuboriladi.</p>
+  <input id="nm" placeholder="Ism familiyangiz" autocomplete="name">
+  <input id="ph" placeholder="Telefon raqam" inputmode="tel" autocomplete="tel">
+  <button class="b" onclick="doLogin()">Kirish / So'rov yuborish</button><p id="er" class="hint"></p></div>`;
+  const last = JSON.parse(localStorage.getItem('last') || 'null');
+  if (last) { $('#nm').value = last.n; $('#ph').value = last.p; }
+}
+async function doLogin() {
+  const n = $('#nm').value.trim(), p = $('#ph').value.trim();
+  if (!n || p.replace(/\D/g, '').length < 9) return $('#er').textContent = 'Ism va to\'g\'ri raqam kiriting';
+  const { data, error } = await sb.rpc('login', { p_phone: p, p_name: n });
+  if (error) return $('#er').textContent = 'Xatolik: ' + error.message;
+  me = data; localStorage.setItem('me', JSON.stringify(me)); localStorage.setItem('last', JSON.stringify({ n, p }));
+  boot();
+}
+function logout() { localStorage.removeItem('me'); me = null; loginView(); }
+function waitView() {
+  const rej = me.status === 'rejected';
+  $('#app').innerHTML = `<div class="login"><div class="moon">${rej ? '⛔' : '⏳'}</div><h1>${rej ? 'So\'rov rad etildi' : 'Tasdiq kutilmoqda'}</h1><p>${rej ? 'Ustoz kirishga ruxsat bermadi. Ustoz bilan bog\'laning.' : 'So\'rovingiz ustozga yuborildi. Ustoz tasdiqlagach saytga kira olasiz.'}</p><button class="b t" onclick="boot()">Qayta tekshirish</button><button class="b g" onclick="logout()">Chiqish</button></div>`;
+}
+
+async function boot() {
+  const f = await sb.rpc('login', { p_phone: me.phone, p_name: me.name });
+  if (f.error || !f.data) return $('#app').innerHTML = '<div class="login"><p>Ulanishda xatolik.</p><button class="b" onclick="boot()">Qayta urinish</button><button class="b g" onclick="logout()">Chiqish</button></div>';
+  me = f.data; localStorage.setItem('me', JSON.stringify(me));
+  if (me.status !== 'approved') return waitView();
+  const [w, p] = await Promise.all([sb.rpc('get_words', { p_user: me.id }), sb.rpc('get_progress', { p_user: me.id })]);
+  if (p.error) alert('Natijalar yuklanmadi: ' + p.error.message);
+  words = w.data || []; prog = {}; (p.data || []).forEach(r => prog[r.word_id] = r);
+  buildQ(); render();
+  if (me.role === 'teacher' && !window._pi) { pollPending(); window._pi = setInterval(pollPending, 30000); }
+}
+let seen = new Set();
+function buildQ() {
+  const t = day(), N = 20;
+  const rank = w => (prog[w.id] ? (prog[w.id].due <= t ? 0 : 2) : 1) + Math.random() * .9;
+  const order = list => [...list].sort((a, b) => rank(a) - rank(b));
+  let q = order(words.filter(w => !seen.has(w.id))).slice(0, N);
+  if (q.length < N) { // hamma so'z aylanib chiqdi: yangi aylanish
+    seen = new Set();
+    q = [...q, ...order(words.filter(w => !q.includes(w))).slice(0, N - q.length)];
+  }
+  q.forEach(w => seen.add(w.id));
+  C.q = q; C.i = 0; C.flip = false;
+}
+function render() {
+  const T = [['cards','🃏','Kartalar'],['games','🎮','O\'yin'],['rank','🏆','Reyting'],['badge','🏅','Nishon']];
+  if (me.role === 'teacher') T.push(['teach','⚙️','Ustoz']);
+  $('#app').innerHTML = `<header><div class="logo">🌙 Türkçe Yodla</div><div class="chip" id="sv">v8</div></header>
+  <main id="main"></main><nav>${T.map(t => `<button ${t[0] === 'teach' ? 'id="tn"' : ''} class="${tab === t[0] ? 'on' : ''}" onclick="tab='${t[0]}';render()"><span>${t[1]}</span>${t[2]}</button>`).join('')}</nav>`;
+  setPn();
+  ({ cards, games, rank, badge, teach })[tab]();
+}
+
+/* ---- Kartalar + spaced repetition ---- */
+const dueCount = () => { const t = day(); return words.filter(w => prog[w.id] && prog[w.id].due <= t).length; };
+function startReview() { const t = day(); C.q = shuf(words.filter(w => prog[w.id] && prog[w.id].due <= t)); C.i = 0; C.flip = false; cards(); }
+function cards() {
+  const d = dueCount();
+  $('#main').innerHTML = `<div class="m3"><div><b>${words.length}</b>jami so‘z</div><div><b>${learned()}</b>yodlangan</div><div><b>${d}</b>takrorlash</div></div>
+  <div class="card" style="display:flex;align-items:center;gap:10px"><div style="flex:1"><b>🔁 Bugungi takrorlash</b><div class="hint">${d ? d + ' ta so‘z kutmoqda' : 'Hammasi takrorlangan ✅'}</div></div><button class="b" style="width:auto" onclick="startReview()" ${d ? '' : 'disabled'}>Boshlash</button></div>
+  <div id="cc"></div>`;
+  cardsInner();
+}
+function cardsInner() {
+  const m = $('#cc');
+  if (!words.length) return m.innerHTML = '<div class="card">Hali so\'z yo\'q. Ustoz so\'z qo\'shishi kerak.</div>';
+  if (C.i >= C.q.length) return m.innerHTML = `<div class="card" style="text-align:center"><div class="moon">🎉</div><b>Bugungi takrorlar tugadi!</b><p class="hint">Yodlangan: ${learned()} ta so'z</p><button class="b t" onclick="buildQ();render()">Yana mashq qilish</button><button class="b g" onclick="logout()">Chiqish</button></div>`;
+  const w = C.q[C.i], front = C.rev ? w.uz : w.tr, back = C.rev ? w.tr : w.uz;
+  m.innerHTML = `<div class="hint">${C.i + 1} / ${C.q.length}</div>
+  <div class="card flip" onclick="C.flip=!C.flip;cards()">${C.flip ? esc(back) : esc(front)}
+  ${!C.flip && !C.rev && w.pron ? `<small>[${esc(w.pron)}]</small>` : ''}${C.flip && C.rev && w.pron ? `<small>[${esc(w.pron)}]</small>` : ''}
+  <small class="hint">${C.flip ? '' : 'ag\'darish uchun bosing'}</small></div>
+  <div class="row"><button class="b t" onclick="speak('${esc(w.tr).replace(/'/g, '\\\'')}')">🔊 Eshitish</button><button class="b g" onclick="C.rev=!C.rev;C.flip=false;cards()">⇄ Almashtirish</button></div>
+  ${C.flip ? `<div class="row"><button class="b no" onclick="grade(0)">Bilmadim</button><button class="b ok" onclick="grade(1)">Bildim</button></div>` : ''}`;
+}
+function save(wid, box, due) {
+  const sv = $('#sv'); if (sv) sv.textContent = '⏳';
+  sb.rpc('save_progress', { p_user: me.id, p_word: wid, p_box: box, p_due: due }).then(x => {
+    const e = $('#sv'); if (e) e.textContent = x.error ? '❌' : '☁️✅';
+    if (x.error) alert('Saqlanmadi: ' + x.error.message);
+  }, err => { const e = $('#sv'); if (e) e.textContent = '❌'; alert('Saqlanmadi (internet?): ' + err); });
+}
+function grade(ok) {
+  const w = C.q[C.i], old = prog[w.id], box = ok ? Math.min((old ? old.box : 0) + 1, 5) : 0;
+  const r = { user_id: me.id, word_id: w.id, box, due: day(GAP[box]) };
+  prog[w.id] = r; C.i++; C.flip = false; cards();
+  save(w.id, box, r.due);
+}
+// O'yinda xato qilingan yodlangan so'z yodlangandan chiqadi; keyingi safar to'g'ri topilsa qaytadi
+function mark(w, ok) {
+  const p = w && prog[w.id]; if (!p) return;
+  let box;
+  if (!ok && p.box >= 1) box = 0; else if (ok && p.box === 0) box = 1; else return;
+  prog[w.id] = { ...p, box, due: day(GAP[box]) };
+  save(w.id, box, prog[w.id].due);
+}
+
+/* ---- O'yinlar ---- */
+// Hamma so'z navbat bilan keladi: bir aylanish tugamaguncha so'z takrorlanmaydi
+let deck = [], deckN = -1;
+function draw(n) {
+  if (deckN !== words.length) { deck = []; deckN = words.length; }
+  const out = [];
+  while (out.length < n && out.length < words.length) {
+    if (!deck.length) deck = shuf(words);
+    const w = deck.pop();
+    if (!out.some(x => x.id === w.id)) out.push(w);
+  }
+  return out;
+}
+function games() {
+  $('#main').innerHTML = words.length < 4 ? '<div class="card">O\'yin uchun kamida 4 ta so\'z kerak.</div>' :
+  `<button class="b" onclick="quiz()">📝 Test (4 ta variant)</button><button class="b t" onclick="match()">🔗 Juftlash</button><button class="b g" onclick="typing()">⌨️ Yozish</button>`;
+}
+function back() { return '<button class="b g" onclick="games()">← O\'yinlar</button>'; }
+function quiz(s) {
+  s = s || { q: draw(10), i: 0, sc: 0 };
+  const m = $('#main');
+  if (s.i >= s.q.length) return m.innerHTML = `<div class="card" style="text-align:center"><div class="moon">🏁</div><b>Natija: ${s.sc} / ${s.q.length}</b></div><button class="b" onclick="quiz()">Qayta</button>${back()}`;
+  const w = s.q[s.i], rev = Math.random() < .5;
+  const opts = shuf([w, ...shuf(words.filter(x => x.id !== w.id)).slice(0, 3)]);
+  m.innerHTML = `<div class="hint">${s.i + 1} / ${s.q.length}</div><div class="card flip" style="min-height:110px">${esc(rev ? w.uz : w.tr)}</div>` +
+    opts.map((o, k) => `<button class="b w" id="o${k}">${esc(rev ? o.tr : o.uz)}</button>`).join('');
+  opts.forEach((o, k) => $('#o' + k).onclick = () => {
+    const good = o.id === w.id; if (good) s.sc++; mark(w, good);
+    $('#o' + k).classList.add(good ? 'ok' : 'no');
+    if (!good) $('#o' + opts.findIndex(x => x.id === w.id)).classList.add('ok');
+    s.i++; setTimeout(() => quiz(s), 800);
+  });
+}
+function match() {
+  const ws = draw(6); let a = null, done = 0, err = 0; const bad = new Set();
+  const L = shuf(ws), R = shuf(ws), m = $('#main');
+  m.innerHTML = `<div class="hint">Mos juftliklarni tanlang</div><div class="m2"><div id="L">${L.map(w => `<button class="b w" data-id="${w.id}">${esc(w.uz)}</button>`).join('')}</div><div id="R">${R.map(w => `<button class="b w" data-id="${w.id}">${esc(w.tr)}</button>`).join('')}</div></div><div id="res"></div>${back()}`;
+  document.querySelectorAll('#L button').forEach(b => b.onclick = () => { if (b.disabled) return; document.querySelectorAll('#L button').forEach(x => x.style.outline = ''); a = b; b.style.outline = '3px solid var(--teal)'; });
+  document.querySelectorAll('#R button').forEach(b => b.onclick = () => {
+    if (!a || b.disabled) return;
+    if (a.dataset.id === b.dataset.id) { const id = Number(a.dataset.id); if (!bad.has(id)) mark(words.find(x => x.id === id), true); a.classList.add('ok'); b.classList.add('ok'); a.disabled = b.disabled = true; a.style.outline = ''; a = null; speak(words.find(w => w.id == b.dataset.id).tr);
+      if (++done === ws.length) $('#res').innerHTML = `<div class="card" style="text-align:center">🎉 Xatolar: ${err}</div><button class="b" onclick="match()">Qayta</button>`; }
+    else { err++; { const id = Number(a.dataset.id); bad.add(id); mark(words.find(x => x.id === id), false); } b.classList.add('no'); setTimeout(() => b.classList.remove('no'), 500); }
+  });
+}
+function typing(s) {
+  s = s || { q: draw(10), i: 0, sc: 0 };
+  const m = $('#main');
+  if (s.i >= s.q.length) return m.innerHTML = `<div class="card" style="text-align:center"><div class="moon">🏁</div><b>Natija: ${s.sc} / ${s.q.length}</b></div><button class="b" onclick="typing()">Qayta</button>${back()}`;
+  const w = s.q[s.i];
+  m.innerHTML = `<div class="hint">${s.i + 1} / ${s.q.length} — turkchasini yozing</div><div class="card flip" style="min-height:110px">${esc(w.uz)}</div><input id="ans" autocomplete="off" autocapitalize="none"><button class="b" id="ck">Tekshirish</button><div id="fb"></div>`;
+  const go = () => {
+    const ok = plain($('#ans').value) === plain(w.tr); if (ok) s.sc++; mark(w, ok);
+    $('#fb').innerHTML = `<div class="card ${ok ? 'me' : ''}">${ok ? '✅' : '❌'} <b>${esc(w.tr)}</b> ${w.pron ? '[' + esc(w.pron) + ']' : ''}</div>`;
+    speak(w.tr); $('#ck').textContent = 'Keyingisi'; $('#ck').onclick = () => { s.i++; typing(s); };
+  };
+  $('#ck').onclick = go; $('#ans').focus(); $('#ans').onkeydown = e => { if (e.key === 'Enter') $('#ck').click(); };
+}
+
+/* ---- Reyting ---- */
+async function rank() {
+  $('#main').innerHTML = '<div class="hint">Yuklanmoqda…</div>';
+  const r = await sb.rpc('get_board', { p_user: me.id }); const data = r.data || [];
+  $('#main').innerHTML = `<div class="m3" style="grid-template-columns:1fr 1fr"><div><b>${words.length}</b>jami kiritilgan so‘z</div><div><b>${learned()}</b>siz yodlagan</div></div><div class="card">${(data || []).map((u, i) => `<div class="rk ${u.uid === me.id ? 'me' : ''}"><b>${['🥇','🥈','🥉'][i] || i + 1}</b><span>${esc(u.uname)}</span><span style="flex:0;white-space:nowrap">📚 ${u.ulearned} / ${words.length}</span></div>`).join('') || 'Hali hech kim yo\'q'}</div><div class="hint">📚 yodlagan so'zlar / jami so'zlar (1 ta so'z = 1 ball)</div>`;
+}
+
+/* ---- Nishonlar + 30 kunlik strik ---- */
+function badge() {
+  const n = learned(), nxt = (Math.floor(n / 500) + 1) * 500;
+  $('#main').innerHTML = `<div class="card"><b>📚 ${n} so'z yodlandi</b><div class="bar"><i style="width:${Math.min(100, n % 500 / 5)}%"></i></div><div class="hint">Keyingi nishongacha: ${Math.max(0, nxt - n)} ta so'z</div></div>
+  ${BADGES.map((b, i) => `<div class="card badge ${n >= (i + 1) * 500 ? '' : 'lock'}"><div class="e">${b[0]}</div><div><b>${b[1]}</b><div class="hint">${(i + 1) * 500} ta so'z</div></div></div>`).join('')}
+  <button class="b g" onclick="logout()">Chiqish</button>`;
+}
+
+/* ---- Ustoz paneli ---- */
+let pn = 0;
+function setPn() { const b = $('#tn'); if (b) b.innerHTML = `<span>⚙️${pn ? ' <b style="background:#fff;color:var(--red);border-radius:9px;padding:0 6px;font-size:12px">' + pn + '</b>' : ''}</span>Ustoz`; }
+async function pollPending() { const r = await sb.rpc('list_users', { p_user: me.id }); pn = (r.data || []).filter(u => u.ustatus === 'pending').length; setPn(); }
+async function setSt(id, st) { await sb.rpc('set_status', { p_user: me.id, p_target: id, p_status: st }); teach(); }
+async function teach() {
+  const r = await sb.rpc('list_users', { p_user: me.id }), us = r.data || [];
+  const P = us.filter(u => u.ustatus === 'pending'), A = us.filter(u => u.ustatus === 'approved' && u.urole !== 'teacher'), X = us.filter(u => u.ustatus === 'rejected');
+  const btn = (u, st, ic) => `<button style="flex:0;border:0;background:none;font-size:20px" onclick="setSt('${u.uid}','${st}')">${ic}</button>`;
+  const row = (u, b) => `<div class="rk"><span>${esc(u.uname)}<div class="hint">${esc(u.uphone)}</div></span>${b}</div>`;
+  pn = P.length;
+  $('#main').innerHTML = `<div class="card ${P.length ? 'me' : ''}"><b>🔔 Kirish so'rovlari (${P.length})</b>${P.map(u => row(u, btn(u, 'approved', '✅') + btn(u, 'rejected', '❌'))).join('') || '<div class="hint">Yangi so\'rov yo\'q</div>'}</div>
+  <div class="card"><b>👥 O'quvchilar (${A.length})</b>${A.map(u => row(u, btn(u, 'rejected', '🚫'))).join('') || '<div class="hint">Hali yo\'q</div>'}</div>
+  ${X.length ? `<div class="card"><b>⛔ Rad etilganlar (${X.length})</b>${X.map(u => row(u, btn(u, 'approved', '✅'))).join('')}</div>` : ''}
+  <div class="card"><b>So'z qo'shish</b>
+  <input id="wtr" placeholder="Turkcha (masalan: merhaba)" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#wuz').focus()}">
+  <input id="wuz" placeholder="O'zbekcha (masalan: salom)" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter'){event.preventDefault();$('#wpr').focus()}">
+  <input id="wpr" placeholder="Talaffuz (shart emas)" autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter'){event.preventDefault();addOne()}">
+  <button class="b" onclick="addOne()">➕ Qo'shish</button><div id="msg1" class="hint"></div>
+  <hr><p class="hint">Ko'p so'zni birdan: har qatorga <i>turkcha - o'zbekcha - talaffuz</i></p>
+  <textarea id="bulk" placeholder="teşekkür - rahmat - teshekkur"></textarea><button class="b" onclick="addW()">Qo'shish</button><div id="msg" class="hint"></div></div>
+  <div class="card"><b>Barcha so'zlar (${words.length})</b>${words.slice().reverse().map(w => `<div class="rk"><span>${esc(w.tr)} — ${esc(w.uz)} ${w.pron ? '<i class="hint">[' + esc(w.pron) + ']</i>' : ''}</span><button style="flex:0;border:0;background:none;font-size:18px" onclick="delW(${w.id})">🗑</button></div>`).join('')}</div>`;
+  setPn();
+}
+async function addRows(rows, msgId) {
+  const { error } = await sb.rpc('add_words', { p_user: me.id, p_rows: rows });
+  if (error) { $(msgId).textContent = 'Xatolik: ' + error.message; alert('Xatolik: ' + error.message); return false; }
+  const w = await sb.rpc('get_words', { p_user: me.id }); words = w.data || []; buildQ();
+  await teach(); $(msgId).textContent = rows.length + ' ta so\'z qo\'shildi ✅'; return true;
+}
+async function addOne() {
+  const tr = $('#wtr').value.trim(), uz = $('#wuz').value.trim(), pron = $('#wpr').value.trim();
+  if (!tr || !uz) return $('#msg1').textContent = 'Turkcha va o\'zbekchasini yozing';
+  if (await addRows([{ tr, uz, pron }], '#msg1')) $('#wtr').focus();
+}
+async function addW() {
+  const rows = $('#bulk').value.split('\n').map(l => l.split(/\s*[-–—=:\t]\s*/).map(x => x.trim())).filter(p => p[0] && p[1]).map(p => ({ tr: p[0], uz: p[1], pron: p[2] || '' }));
+  if (!rows.length) return $('#msg').textContent = 'Format: turkcha - o\'zbekcha';
+  await addRows(rows, '#msg');
+}
+async function delW(id) {
+  if (!confirm('O\'chirilsinmi?')) return;
+  await sb.rpc('del_word', { p_user: me.id, p_id: id });
+  words = words.filter(w => w.id !== id); buildQ(); teach();
+}
+
+if (!CONFIGURED) $('#app').innerHTML = '<div class="login"><div class="moon">🌙</div><h1>Türkçe Yodla</h1><p>Sayt tayyor, lekin Supabase kalitlari kiritilmagan.<br><br><code>index.html</code> ichidagi <b>SUPABASE_URL</b> va <b>SUPABASE_KEY</b> ni to\'ldiring.</p></div>';
+else me ? boot() : loginView();
+</script>
+</body>
+</html>
